@@ -1,0 +1,11 @@
+{
+    "recommendations": [
+        "bmewburn.vscode-intelephense-client",
+        "shevaua.phpcs",
+        "persoderlind.vscode-phpcbf",
+        "xdebug.php-debug",
+        "wordpresstoolbox.wordpress-toolbox",
+        "neilbrayfield.php-docblocker",
+        "editorconfig.editorconfig"
+    ]
+}
