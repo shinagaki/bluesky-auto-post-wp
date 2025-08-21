@@ -3,7 +3,7 @@
  * Plugin Name: BlueSky Auto Post
  * Plugin URI: https://github.com/shinagaki/bluesky-auto-post-wp
  * Description: WordPressの記事投稿時に自動的にBlueSkyにも投稿するプラグイン。リンクカード表示にも対応
- * Version: 1.0.0
+ * Version: 1.1.0
  * Author: Shintaro Inagaki
  * Author URI: https://creco.net/
  * License: GPL v2 or later
@@ -23,7 +23,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 // プラグインの定数を定義
-define( 'BLUESKY_AUTO_POST_VERSION', '1.0.0' );
+define( 'BLUESKY_AUTO_POST_VERSION', '1.1.0' );
 define( 'BLUESKY_AUTO_POST_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'BLUESKY_AUTO_POST_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 
@@ -55,6 +55,10 @@ class BlueSkyAutoPost {
 		add_action( 'init', array( $this, 'init' ) );
 		add_action( 'admin_menu', array( $this, 'add_admin_menu' ) );
 		add_action( 'admin_init', array( $this, 'admin_init' ) );
+
+		// 投稿画面にMeta Boxを追加
+		add_action( 'add_meta_boxes', array( $this, 'add_post_meta_boxes' ) );
+		add_action( 'save_post', array( $this, 'save_post_meta_data' ) );
 
 		// 複数のフックで投稿を捕捉
 		add_action( 'publish_post', array( $this, 'auto_post_to_bluesky' ), 10, 2 );
@@ -111,8 +115,8 @@ class BlueSkyAutoPost {
 	 */
 	public function add_admin_menu() {
 		add_options_page(
-			'BlueSky Auto Post Settings',
-			'BlueSky Auto Post',
+			'Bluesky Auto Post Settings',
+			'Bluesky Auto Post',
 			'manage_options',
 			'bluesky-auto-post',
 			array( $this, 'admin_page' )
@@ -134,7 +138,7 @@ class BlueSkyAutoPost {
 
 		add_settings_section(
 			'bluesky_auto_post_main',
-			'BlueSky接続設定',
+			'Bluesky接続設定',
 			array( $this, 'settings_section_callback' ),
 			'bluesky-auto-post'
 		);
@@ -149,7 +153,7 @@ class BlueSkyAutoPost {
 
 		add_settings_field(
 			'bluesky_username',
-			'BlueSkyユーザー名',
+			'Blueskyユーザー名',
 			array( $this, 'username_field_callback' ),
 			'bluesky-auto-post',
 			'bluesky_auto_post_main'
@@ -157,7 +161,7 @@ class BlueSkyAutoPost {
 
 		add_settings_field(
 			'bluesky_password',
-			'BlueSkyパスワード',
+			'Blueskyパスワード',
 			array( $this, 'password_field_callback' ),
 			'bluesky-auto-post',
 			'bluesky_auto_post_main'
@@ -180,7 +184,7 @@ class BlueSkyAutoPost {
 	 * @since 1.0.0
 	 */
 	public function settings_section_callback() {
-		echo '<p>BlueSkyアカウントの接続設定を行ってください。</p>';
+		echo '<p>Blueskyアカウントの接続設定を行ってください。</p>';
 	}
 
 	/**
@@ -205,7 +209,7 @@ class BlueSkyAutoPost {
 	public function username_field_callback() {
 		$username = get_option( 'bluesky_username', '' );
 		echo '<input type="text" name="bluesky_username" value="' . esc_attr( $username ) . '" class="regular-text" placeholder="example.bsky.social" />';
-		echo '<p class="description">BlueSkyのハンドル名を入力してください（例: example.bsky.social）</p>';
+		echo '<p class="description">Blueskyのハンドル名を入力してください（例: example.bsky.social）</p>';
 	}
 
 	/**
@@ -218,7 +222,7 @@ class BlueSkyAutoPost {
 	public function password_field_callback() {
 		$password = get_option( 'bluesky_password', '' );
 		echo '<input type="password" name="bluesky_password" value="' . esc_attr( $password ) . '" class="regular-text" />';
-		echo '<p class="description">BlueSkyのパスワードまたはApp Passwordを入力してください</p>';
+		echo '<p class="description">BlueskyのパスワードまたはApp Passwordを入力してください</p>';
 	}
 
 	/**
@@ -249,7 +253,7 @@ class BlueSkyAutoPost {
 	public function admin_page() {
 		?>
 		<div class="wrap">
-			<h1>BlueSky Auto Post Settings</h1>
+			<h1>Bluesky Auto Post Settings</h1>
 			<form method="post" action="options.php">
 				<?php
 				settings_fields( 'bluesky_auto_post_settings' );
@@ -296,7 +300,7 @@ class BlueSkyAutoPost {
 						);
 
 						if ( empty( $recent_posts ) ) {
-							echo 'BlueSkyに投稿された記事はありません';
+							echo 'Blueskyに投稿された記事はありません';
 						} else {
 							foreach ( $recent_posts as $recent_post ) {
 								$posted = get_post_meta( $recent_post->ID, '_bluesky_posted', true ) ? '投稿済み' : '未投稿';
@@ -309,7 +313,7 @@ class BlueSkyAutoPost {
 			</table>
 			
 			<h3>手動投稿テスト</h3>
-			<p>最新の記事でBlueSky投稿をテストします：</p>
+			<p>最新の記事でBluesky投稿をテストします：</p>
 			<p>
 				<button type="button" id="test-manual-post" class="button">最新記事を手動投稿</button>
 				<span id="manual-post-result"></span>
@@ -440,6 +444,12 @@ class BlueSkyAutoPost {
 
 		// 既に投稿済みかチェック
 		if ( get_post_meta( $post_id, '_bluesky_posted', true ) ) {
+			return;
+		}
+
+		// 手動制御チェック：チェックボックスがオフの場合はスキップ
+		$manual_control = get_post_meta( $post_id, '_bluesky_manual_post', true );
+		if ( '0' === $manual_control ) {
 			return;
 		}
 
@@ -904,6 +914,94 @@ class BlueSkyAutoPost {
 			}
 			wp_send_json_error( '投稿に失敗しました' );
 		}
+	}
+
+	/**
+	 * 投稿編集画面にMeta Boxを追加
+	 *
+	 * @since 1.0.1
+	 */
+	public function add_post_meta_boxes() {
+		add_meta_box(
+			'bluesky_post_control',
+			'Bluesky投稿設定',
+			array( $this, 'post_meta_box_callback' ),
+			'post',
+			'side',
+			'default'
+		);
+	}
+
+	/**
+	 * Meta Boxの内容を表示
+	 *
+	 * @since 1.0.1
+	 * @param WP_Post $post 投稿オブジェクト
+	 */
+	public function post_meta_box_callback( $post ) {
+		// Nonceフィールドを追加
+		wp_nonce_field( 'bluesky_post_meta_nonce', 'bluesky_post_meta_nonce' );
+
+		// 現在の設定を取得
+		$already_posted = get_post_meta( $post->ID, '_bluesky_posted', true );
+		$manual_control = get_post_meta( $post->ID, '_bluesky_manual_post', true );
+
+		// デフォルト状態を決定（未ポストならオン、ポスト済みならオフ）
+		if ( '' === $manual_control ) {
+			$manual_control = empty( $already_posted ) ? '1' : '0';
+		}
+
+		echo '<div style="margin: 10px 0;">';
+		echo '<label style="display: flex; align-items: center; gap: 8px;">';
+		echo '<input type="checkbox" name="bluesky_manual_post" value="1" ' . checked( $manual_control, '1', false ) . '>';
+		echo '<span>Blueskyに投稿する</span>';
+		echo '</label>';
+
+		if ( ! empty( $already_posted ) ) {
+			echo '<p style="margin: 8px 0 0 0; color: #666; font-size: 12px;">（既に投稿済み）</p>';
+		} else {
+			echo '<p style="margin: 8px 0 0 0; color: #666; font-size: 12px;">（まだ投稿されていません）</p>';
+		}
+
+		// プラグインが無効の場合の警告
+		if ( ! get_option( 'bluesky_auto_post_enabled', false ) ) {
+			echo '<p style="margin: 8px 0 0 0; color: #d63638; font-size: 12px;">⚠ プラグイン設定で自動投稿が無効になっています</p>';
+		}
+
+		echo '</div>';
+	}
+
+	/**
+	 * 投稿保存時にMeta Dataを保存
+	 *
+	 * @since 1.0.1
+	 * @param int $post_id 投稿ID
+	 */
+	public function save_post_meta_data( $post_id ) {
+		// Nonce確認
+		if ( ! isset( $_POST['bluesky_post_meta_nonce'] ) ||
+			! wp_verify_nonce( sanitize_key( $_POST['bluesky_post_meta_nonce'] ), 'bluesky_post_meta_nonce' ) ) {
+			return;
+		}
+
+		// 自動保存時はスキップ
+		if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) {
+			return;
+		}
+
+		// 権限確認
+		if ( ! current_user_can( 'edit_post', $post_id ) ) {
+			return;
+		}
+
+		// postタイプのみ処理
+		if ( 'post' !== get_post_type( $post_id ) ) {
+			return;
+		}
+
+		// チェックボックスの値を保存
+		$manual_post = isset( $_POST['bluesky_manual_post'] ) && '1' === $_POST['bluesky_manual_post'] ? '1' : '0';
+		update_post_meta( $post_id, '_bluesky_manual_post', $manual_post );
 	}
 }
 

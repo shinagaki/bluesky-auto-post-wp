@@ -1,6 +1,6 @@
 {
     "name": "shinagaki/bluesky-auto-post-wp",
-    "description": "WordPress plugin to automatically post to BlueSky when publishing posts",
+    "description": "WordPress plugin to automatically post to Bluesky when publishing posts",
     "type": "wordpress-plugin",
     "license": "GPL-2.0-or-later",
     "authors": [
