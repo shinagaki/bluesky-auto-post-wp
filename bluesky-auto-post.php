@@ -3,7 +3,7 @@
  * Plugin Name: BlueSky Auto Post
  * Plugin URI: https://github.com/shinagaki/bluesky-auto-post-wp
  * Description: WordPressの記事投稿時に自動的にBlueSkyにも投稿するプラグイン。リンクカード表示にも対応
- * Version: 1.1.0
+ * Version: 1.1.1
  * Author: Shintaro Inagaki
  * Author URI: https://creco.net/
  * License: GPL v2 or later
@@ -23,7 +23,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 // プラグインの定数を定義
-define( 'BLUESKY_AUTO_POST_VERSION', '1.1.0' );
+define( 'BLUESKY_AUTO_POST_VERSION', '1.1.1' );
 define( 'BLUESKY_AUTO_POST_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'BLUESKY_AUTO_POST_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 
@@ -953,7 +953,8 @@ class BlueSkyAutoPost {
 
 		echo '<div style="margin: 10px 0;">';
 		echo '<label style="display: flex; align-items: center; gap: 8px;">';
-		echo '<input type="checkbox" name="bluesky_manual_post" value="1" ' . checked( $manual_control, '1', false ) . '>';
+		$disabled = ! empty( $already_posted ) ? ' disabled' : '';
+		echo '<input type="checkbox" name="bluesky_manual_post" value="1" ' . checked( $manual_control, '1', false ) . $disabled . '>';
 		echo '<span>Blueskyに投稿する</span>';
 		echo '</label>';
 
