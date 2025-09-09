@@ -3,7 +3,7 @@
  * Plugin Name: BlueSky Auto Post
  * Plugin URI: https://github.com/shinagaki/bluesky-auto-post-wp
  * Description: WordPressの記事投稿時に自動的にBlueSkyにも投稿するプラグイン。リンクカード表示にも対応
- * Version: 1.1.1
+ * Version: 1.1.2
  * Author: Shintaro Inagaki
  * Author URI: https://creco.net/
  * License: GPL v2 or later
@@ -23,7 +23,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 // プラグインの定数を定義
-define( 'BLUESKY_AUTO_POST_VERSION', '1.1.1' );
+define( 'BLUESKY_AUTO_POST_VERSION', '1.1.2' );
 define( 'BLUESKY_AUTO_POST_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'BLUESKY_AUTO_POST_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 
@@ -58,7 +58,6 @@ class BlueSkyAutoPost {
 
 		// 投稿画面にMeta Boxを追加
 		add_action( 'add_meta_boxes', array( $this, 'add_post_meta_boxes' ) );
-		add_action( 'save_post', array( $this, 'save_post_meta_data' ) );
 
 		// 複数のフックで投稿を捕捉
 		add_action( 'publish_post', array( $this, 'auto_post_to_bluesky' ), 10, 2 );
@@ -448,8 +447,7 @@ class BlueSkyAutoPost {
 		}
 
 		// 手動制御チェック：チェックボックスがオフの場合はスキップ
-		$manual_control = get_post_meta( $post_id, '_bluesky_manual_post', true );
-		if ( '0' === $manual_control ) {
+		if ( ! isset( $_POST['bluesky_manual_post'] ) || '1' !== $_POST['bluesky_manual_post'] ) {
 			return;
 		}
 
@@ -942,19 +940,15 @@ class BlueSkyAutoPost {
 		// Nonceフィールドを追加
 		wp_nonce_field( 'bluesky_post_meta_nonce', 'bluesky_post_meta_nonce' );
 
-		// 現在の設定を取得
+		// 投稿状況を取得
 		$already_posted = get_post_meta( $post->ID, '_bluesky_posted', true );
-		$manual_control = get_post_meta( $post->ID, '_bluesky_manual_post', true );
-
-		// デフォルト状態を決定（未ポストならオン、ポスト済みならオフ）
-		if ( '' === $manual_control ) {
-			$manual_control = empty( $already_posted ) ? '1' : '0';
-		}
+		
+		// シンプルな状態決定：投稿済みならオフ、未投稿ならオン
+		$manual_control = empty( $already_posted ) ? '1' : '0';
 
 		echo '<div style="margin: 10px 0;">';
 		echo '<label style="display: flex; align-items: center; gap: 8px;">';
-		$disabled = ! empty( $already_posted ) ? ' disabled' : '';
-		echo '<input type="checkbox" name="bluesky_manual_post" value="1" ' . checked( $manual_control, '1', false ) . $disabled . '>';
+		echo '<input type="checkbox" name="bluesky_manual_post" value="1" ' . checked( $manual_control, '1', false ) . '>';
 		echo '<span>Blueskyに投稿する</span>';
 		echo '</label>';
 
@@ -972,38 +966,6 @@ class BlueSkyAutoPost {
 		echo '</div>';
 	}
 
-	/**
-	 * 投稿保存時にMeta Dataを保存
-	 *
-	 * @since 1.0.1
-	 * @param int $post_id 投稿ID
-	 */
-	public function save_post_meta_data( $post_id ) {
-		// Nonce確認
-		if ( ! isset( $_POST['bluesky_post_meta_nonce'] ) ||
-			! wp_verify_nonce( sanitize_key( $_POST['bluesky_post_meta_nonce'] ), 'bluesky_post_meta_nonce' ) ) {
-			return;
-		}
-
-		// 自動保存時はスキップ
-		if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) {
-			return;
-		}
-
-		// 権限確認
-		if ( ! current_user_can( 'edit_post', $post_id ) ) {
-			return;
-		}
-
-		// postタイプのみ処理
-		if ( 'post' !== get_post_type( $post_id ) ) {
-			return;
-		}
-
-		// チェックボックスの値を保存
-		$manual_post = isset( $_POST['bluesky_manual_post'] ) && '1' === $_POST['bluesky_manual_post'] ? '1' : '0';
-		update_post_meta( $post_id, '_bluesky_manual_post', $manual_post );
-	}
 }
 
 // プラグインを初期化
